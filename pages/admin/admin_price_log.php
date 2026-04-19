@@ -25,7 +25,7 @@ $logs = $stm->fetchAll();
 
 <div class="container">
     <h2 style="margin-bottom: 20px; color: #222; border-bottom: 2px solid #90d895; display: inline-block;">
-        Price Audit History
+        Admin | Price Logs
     </h2>
 
     <table class="table" style="width:100%; border-collapse: collapse; margin-top: 10px;">
