@@ -36,7 +36,7 @@ if (is_post()) {
     
     $action = post('action');
 
-    if (($_user->role == 'superadmin') && ($action == 'insert' || $action == 'update')) {
+    if (($_user->role == 'superadmin' || $_user->role == 'admin') && ($action == 'insert' || $action == 'update')) {
         $p_id   = post('p_id');
         $name   = post('name');
         $price  = post('price');
