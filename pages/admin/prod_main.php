@@ -3,6 +3,8 @@ require '../../_base.php';
 //-------------------------------------------------------------
 auth("superadmin","admin");
 
+
+
 $search = get('search');
 $min_p  = get('min_p');
 $max_p  = get('max_p');
@@ -30,12 +32,15 @@ if ($status_f) {
 }
 
 if (is_post()) {
+
+    
     $action = post('action');
 
     if (($_user->role == 'superadmin') && ($action == 'insert' || $action == 'update')) {
         $p_id   = post('p_id');
         $name   = post('name');
         $price  = post('price');
+        $discount  = post('discount');
         $c_id   = post('c_id');
         $status = post('status');
         $cold = post('cold') ?: 0;
@@ -55,6 +60,10 @@ if (is_post()) {
             $_err['price'] = 'Invalid price format';
         }
 
+        // if ($discount == '') {
+        //     $_err['discount'] = 'Discound is required';
+        // }
+
         if (!is_exists($c_id, 'category', 'c_id')) {
             $_err['c_id'] = 'Invalid category selected';
         }
@@ -69,13 +78,16 @@ if (is_post()) {
         }
         
         if (!$_err) {
+// Inside your product update logic:
+    $old_product = $_db->query("SELECT price, discount FROM product WHERE p_id = $p_id")->fetch();
+
             if ($action == 'insert') {
                 $photo = 'default.jpg';
                 if ($f) {
                     $photo = save_photo($f, root('/app/images/product'), 400, 400);
                 }
-                $stm = $_db->prepare('INSERT INTO product (name, price, c_id, status, cold, hot, image) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                $stm->execute([$name, $price, $c_id, $status, $cold, $hot, $photo]);
+                $stm = $_db->prepare('INSERT INTO product (name, price, discount, c_id, status, cold, hot, image) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                $stm->execute([$name, $price, $discount, $c_id, $status, $cold, $hot, $photo]);
                 $p_id = $_db->lastInsertId();
 
                 $stm = $_db->prepare('INSERT INTO topping_list (p_id, t_id) VALUES (?, ?)');
@@ -98,8 +110,8 @@ if (is_post()) {
                     $photo = $new_photo;
                 }
 
-                $stm = $_db->prepare('UPDATE product SET name=?, price=?, c_id=?, status=?, cold=?, hot=?, image=? WHERE p_id=?');
-                $stm->execute([$name, $price, $c_id, $status, $cold, $hot, $photo, $p_id]);
+                $stm = $_db->prepare('UPDATE product SET name=?, price=?, discount=?, c_id=?, status=?, cold=?, hot=?, image=? WHERE p_id=?');
+                $stm->execute([$name, $price, $discount, $c_id, $status, $cold, $hot, $photo, $p_id]);
                 
                 $stm = $_db->prepare('DELETE FROM topping_list WHERE p_id = ?');
                 $stm->execute([$p_id]);
@@ -108,6 +120,20 @@ if (is_post()) {
                 foreach ($t_ids as $t_id) {
                     $stm->execute([$p_id, $t_id]);
                 }
+
+                // Inside your product update logic:
+                // $old_product = $_db->query("SELECT price, discount FROM product WHERE p_id = $p_id")->fetch();
+                $new_price = post('price');
+                $new_discount = post('discount');
+                
+                if ($old_product->price != $new_price || $old_product->discount != $new_discount) {
+                    $log = $_db->prepare("
+                        INSERT INTO price_log (a_id, p_id, old_price, new_price, old_discount, new_discount)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ");
+                    $log->execute([$_user->id, $p_id, $old_product->price, $new_price, $old_product->discount, $new_discount]);
+}
+
                 temp('info', 'Product updated successfully');
             }
             redirect();
@@ -232,6 +258,7 @@ include '../../_adminsidebar.php';
     
 <script>
     $(()=>{
+        let basePrice = 0;
         $('.tab-btn').click(function() {
         $('.tab-btn, .tab-pane').removeClass('active');
         $(this).addClass('active');
@@ -253,10 +280,11 @@ include '../../_adminsidebar.php';
 
     $('.card').click(function() {
         const d = $(this).data();
-        
+        basePrice = parseFloat(d.price);
         $('#p_id').val(d.id);
         $('#p_name').val(d.name);
         $('#p_price').val(d.price);
+        $('#p_discount').val(d.discount);
         $('#p_cat').val(d.cat);
         $('#p_status').val(d.status);
         $('#curr_img').attr('src', '/app/images/product/' + d.img);
@@ -277,6 +305,23 @@ include '../../_adminsidebar.php';
         $('#overlay').fadeIn();
         
     });
+
+    $('#p_price').on('input', function() {
+        const currentPrice = parseFloat($(this).val()) || 0;
+        
+        if (basePrice > 0 && currentPrice < basePrice) {
+            // Formula: ((Original - New) / Original) * 100
+            let diff = basePrice - currentPrice;
+            let discountPercent = (diff / basePrice) * 100;
+            
+            // Update the discount box (rounded to 2 decimal places)
+            $('#p_discount').val(discountPercent.toFixed(2));
+        } else if (currentPrice >= basePrice) {
+            // If price is same or higher, discount is 0
+            $('#p_discount').val(0);
+        }
+    });
+
     
     $('#p_image').change(function(e) {
         const file = e.target.files[0];
@@ -349,6 +394,7 @@ include '../../_adminsidebar.php';
                         data-id="<?= $p->p_id ?>" 
                         data-name="<?= encode($p->name) ?>" 
                         data-price="<?= $p->price ?>" 
+                        data-discount="<?= $p->discount ?>" 
                         data-img="<?= $p->image ?>" 
                         data-cat="<?= $p->c_id ?>"
                         data-status="<?= $p->status ?>"
@@ -391,6 +437,11 @@ include '../../_adminsidebar.php';
             <div class="form-group">
                 <label>Price (RM):</label>
                 <input type="number" name="price" id="p_price" step="0.05" required><span><?php err('price');?></span>
+            </div>
+
+            <div class="form-group">
+                <label>Discount (%):</label>
+                <input type="number" name="discount" id="p_discount" step="0.05" readonly style="background-color: #eee; cursor: not-allowed;><span><?php err('discount');?></span>
             </div>
 
             <div class="form-group">
