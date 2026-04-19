@@ -495,7 +495,7 @@ include '../../_adminsidebar.php';
 
             <div class="drawer-footer">
                 <button type="button" class="btn-back" id="closeDrawer">Close</button>
-                <?php if($_user->role == 'superadmin'): ?>
+                <?php if($_user->role == 'superadmin' || $_user->role == 'admin'): ?>
                     <button type="submit" class="btn-add">Submit</button>
                 <?php endif; ?>
             </div>
