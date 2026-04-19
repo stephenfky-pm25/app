@@ -57,7 +57,7 @@
             <div class="sidebar-block" href="/app/pages/admin/user_mng.php">User</div>
             <div class="sidebar-block" href="/app/pages/admin/team_mng.php">Team</div>
             <div class="sidebar-block" href="/app/pages/admin/branch_main.php">Branch</div>
-            <div class="sidebar-block" href="/app/pages/admin/price_log.php">Price Logs</div>
+            <div class="sidebar-block" href="/app/pages/admin/admin_price_log.php">Admin / Price Logs</div>
         <?php endif;?>
         <div class="sidebar-block" href="/app/pages/admin/feedback_mng.php">Feedback</div>
     </div>
